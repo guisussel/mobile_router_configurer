@@ -41,6 +41,8 @@ class LiveRouterTest {
                 println("Wi-Fi ${it.band.label}: ssid=${it.ssid} security=${it.security} channel=${it.channel ?: "auto"}(${it.currentChannel}) width=${it.width} power=${it.txPowerPercent}% wps=${it.wpsEnabled} channels=${it.supportedChannels} password=${if (it.password != null) "<lida>" else "<ausente>"}")
             }
 
+            println("Controls: ${driver.deviceControls()}")
+
             // 30 polls at 1 s, like the dashboard does.
             val latencies = mutableListOf<Long>()
             var previous = driver.counters()

@@ -1,6 +1,8 @@
 package com.roteador.core.data
 
 import com.roteador.core.model.ConnectedDevice
+import com.roteador.core.model.DeviceControls
+import com.roteador.core.model.RouterCapability
 import com.roteador.core.model.InterfaceCounters
 import com.roteador.core.model.RouterInfo
 import com.roteador.core.model.RouterStatus
@@ -38,6 +40,16 @@ interface RouterRepository {
     suspend fun applyWifi(change: WifiBandChange)
 
     suspend fun reboot()
+
+    suspend fun deviceControls(): DeviceControls
+
+    suspend fun reserveIp(mac: String, name: String, ipv4: String)
+
+    suspend fun removeReservation(reservationId: String)
+
+    suspend fun blockInternet(ipv4: String, mac: String?)
+
+    suspend fun unblockInternet(blockId: String)
 }
 
 data class LoginRequest(
@@ -52,5 +64,16 @@ data class SavedLogin(val host: String, val username: String, val hasPassword: B
 sealed interface ConnectionState {
     data object Disconnected : ConnectionState
 
-    data class Connected(val host: String, val info: RouterInfo, val username: String) : ConnectionState
+    data class Connected(
+        val host: String,
+        val info: RouterInfo,
+        val username: String,
+        val capabilities: Set<RouterCapability>,
+    ) : ConnectionState {
+        /** Address of the router's own web page, for things the app cannot do. */
+        val webUrl: String get() = if (host.startsWith("http")) host else "http://$host"
+
+        /** Generic mode: no driver for this model. */
+        val limited: Boolean get() = RouterCapability.WifiSettings !in capabilities
+    }
 }

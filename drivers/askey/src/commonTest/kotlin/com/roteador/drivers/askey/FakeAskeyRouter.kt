@@ -32,6 +32,13 @@ internal class FakeAskeyRouter(
     var validationAnswer = "0"
     private var sessionKey = 1111
 
+    /** `iid/host/mac/ip` entries, like `sv_getvar.cmd?varName=dhcpStatic`. */
+    val reservations = mutableListOf("0/b8:27:eb:37:8d:30/b8:27:eb:37:8d:30/192.168.15.5")
+
+    /** ruleId -> body of `action=show`. */
+    val firewallRules = linkedMapOf("5" to AskeyFixtures.DEFAULT_RULE)
+    val firewallCreates = mutableListOf<String>()
+
     val client = HttpClient(MockEngine { request -> handle(request) }) {
         followRedirects = true
         expectSuccess = false
@@ -58,7 +65,44 @@ internal class FakeAskeyRouter(
                 html("<script>location.href = \"/index_cliente.asp\";</script>")
             }
             "cgi-bin/te_logout.cgi" -> { loggedIn = false; redirectToLogin() }
-            "cgi-bin/sv_getvar.cmd" -> guarded { html(if (query["wifi_id"] == "1") "36,40,44,48" else "1,6,11") }
+            "cgi-bin/sv_getvar.cmd" -> guarded {
+                when (query["varName"]) {
+                    "dhcpStatic" -> html(reservations.joinToString("|"))
+                    else -> html(if (query["wifi_id"] == "1") "36,40,44,48" else "1,6,11")
+                }
+            }
+            "cgi-bin/sv_setvar.cmd" -> guarded {
+                if (query["sessionKey"] != sessionKey.toString()) return@guarded respond("bad key", HttpStatusCode.Forbidden)
+                val value = query["varValue"].orEmpty()
+                when (query["varName"]) {
+                    "modDhcpStatic" -> {
+                        val (iid, host, mac, ip) = value.split('/')
+                        reservations.removeAll { it.split('/')[0] == iid || it.split('/')[2].equals(mac, true) }
+                        reservations += "${if (iid == "-1") reservations.size + 10 else iid}/$host/${mac.lowercase()}/$ip"
+                    }
+                    "delDhcpStatic" -> reservations.removeAll { it.substringBefore('/') == value }
+                }
+                html("0")
+            }
+            "settings-local-network.asp" -> guarded { html(AskeyFixtures.lan.replace("3333", sessionKey.toString())) }
+            "settings-firewall.asp" -> guarded { html(AskeyFixtures.firewall(firewallRules.keys.joinToString(",")).replace("4444", sessionKey.toString())) }
+            "cgi-bin/sv_firewall.cmd" -> guarded {
+                if (query["sessionKey"] != sessionKey.toString()) return@guarded respond("bad key", HttpStatusCode.Forbidden)
+                val inst = query["inst"].orEmpty()
+                when (query["action"]) {
+                    "show" -> html(firewallRules[inst] ?: "")
+                    "delete" -> { firewallRules.remove(inst); html("") }
+                    "create" -> {
+                        firewallCreates += inst
+                        val f = inst.split(',')
+                        val id = ((firewallRules.keys.maxOf { it.toInt() }) + 1).toString()
+                        // show = chnId,ruleId,enabled,order,name,...
+                        firewallRules[id] = "inst=3,$id,${f[1]},1,${f[2]},${f.drop(3).joinToString(",")}"
+                        html("")
+                    }
+                    else -> html("")
+                }
+            }
             "cgi-bin/cbReboot.xml" -> guarded {
                 if (query["sessionKey"] != sessionKey.toString()) respond("bad key", HttpStatusCode.Forbidden)
                 else { rebooted = true; html("<ok/>") }

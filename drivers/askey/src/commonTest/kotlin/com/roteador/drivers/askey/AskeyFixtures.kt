@@ -114,6 +114,26 @@ internal object AskeyFixtures {
         </script>
     """.trimIndent()
 
+    val lan = """
+        <script nonce='x'>
+        	var sessionKey='3333';
+        	var lanIp = '192.168.15.1';
+        	var dhcpStart = '192.168.15.2';
+        	var dhcpEnd = '192.168.15.200';
+        </script>
+    """.trimIndent()
+
+    fun firewall(ruleIds: String) = """
+        <script nonce='x'>
+        	var sessionKey='4444';
+        	var firewallRuleIndexList='$ruleIds';
+        	var firewallInterfaceList='2,1';
+        </script>
+    """.trimIndent()
+
+    /** The router's own default rule, exactly as `action=show` returns it. */
+    const val DEFAULT_RULE = "inst=3,5,1,0,Accept traffic from LAN to HSI WAN,1,-1,2,0,0,1,0,0,-1,*,-1,0,*,-1,0,-1,0,-1,-1,0,-1,-1,0"
+
     val rebootPopup = """
         <script nonce='x'>
         	var sessionKey='2222';

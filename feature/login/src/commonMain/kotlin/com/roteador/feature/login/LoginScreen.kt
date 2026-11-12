@@ -73,7 +73,8 @@ fun LoginScreen(
         Icon(RoteadorIcons.Wifi, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(48.dp))
         Text("Entrar no roteador", style = MaterialTheme.typography.headlineSmall)
         Text(
-            "Use o usuário e a senha da etiqueta embaixo do aparelho. O celular precisa estar no Wi-Fi dele.",
+            "Use o usuário e a senha da etiqueta embaixo do aparelho. O celular precisa estar no Wi-Fi dele. " +
+                "Se o modelo não for suportado, o app abre no modo básico, que não precisa de senha.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

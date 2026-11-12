@@ -17,6 +17,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.roteador.core.designsystem.Format
 import com.roteador.core.designsystem.RoteadorTheme
 import com.roteador.core.designsystem.component.ChartSeries
+import com.roteador.core.designsystem.component.ChartTick
 import com.roteador.core.designsystem.component.InlineMessage
 import com.roteador.core.designsystem.component.LineChart
 import com.roteador.core.designsystem.component.MetricRow
@@ -51,12 +52,21 @@ fun SignalScreen(modifier: Modifier = Modifier, viewModel: SignalViewModel = koi
                         fontWeight = FontWeight.SemiBold,
                         color = quality?.let { RoteadorTheme.status.of(it) } ?: MaterialTheme.colorScheme.onSurface,
                     )
+                    val status = RoteadorTheme.status
                     LineChart(
                         series = listOf(ChartSeries(state.history.map { it.toDouble() }, MaterialTheme.colorScheme.primary)),
                         capacity = SignalUiState.HISTORY,
                         minValue = -90.0,
                         maxValue = -20.0,
-                        height = 160.dp,
+                        height = 180.dp,
+                        ticks = {
+                            listOf(
+                                ChartTick(-30.0, "-30 dBm"),
+                                ChartTick(-60.0, "-60 dBm · ótimo acima", status.good),
+                                ChartTick(-72.0, "-72 dBm · fraco abaixo", status.critical),
+                                ChartTick(-85.0, "-85 dBm"),
+                            )
+                        },
                     )
                     Text(
                         "Ande pela casa com esta tela aberta: o gráfico mostra os últimos 2 minutos. " +

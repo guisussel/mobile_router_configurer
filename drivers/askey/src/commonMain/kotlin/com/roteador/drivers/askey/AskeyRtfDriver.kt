@@ -2,6 +2,10 @@ package com.roteador.drivers.askey
 
 import co.touchlab.kermit.Logger
 import com.roteador.core.model.ConnectedDevice
+import com.roteador.core.model.DeviceControls
+import com.roteador.core.model.InternetBlock
+import com.roteador.core.model.Ipv4
+import com.roteador.core.model.RouterCapability
 import com.roteador.core.model.InterfaceCounters
 import com.roteador.core.model.RouterException
 import com.roteador.core.model.RouterInfo
@@ -41,6 +45,8 @@ internal class AskeyRtfDriver(
     private val log = Logger.withTag("AskeyRtfDriver")
 
     override val defaultUsername = "admin"
+
+    override val capabilities = RouterCapability.entries.toSet()
 
     override suspend fun login(username: String, password: String) = routerCall {
         http.get(endpoint(AskeyPaths.LOGIN_PAGE))
@@ -104,6 +110,103 @@ internal class AskeyRtfDriver(
     }
 
     override fun close() = http.close()
+
+    // --- Device controls ---------------------------------------------------------
+
+    override suspend fun deviceControls(): DeviceControls {
+        val reservations = AskeyParsers.reservations(getVar("dhcpStatic", referer = AskeyPaths.LAN))
+        val range = AskeyParsers.dhcpRange(page(AskeyPaths.LAN))
+        return DeviceControls(reservations, internetBlocks(), range)
+    }
+
+    /** Same request as the "Reservar" button of Rede Local: `modDhcpStatic` with `iid/host/MAC/ip` (iid -1 = new). */
+    override suspend fun reserveIp(mac: String, name: String, ipv4: String) {
+        val ip = Ipv4.parse(ipv4) ?: throw RouterException.Rejected("IP inválido: $ipv4")
+        val lanHtml = page(AskeyPaths.LAN)
+        AskeyParsers.dhcpRange(lanHtml)?.let { range ->
+            if (ip !in range) throw RouterException.Rejected("o IP precisa estar entre ${range.start} e ${range.endInclusive}")
+        }
+        val current = AskeyParsers.reservations(getVar("dhcpStatic", referer = AskeyPaths.LAN))
+        current.firstOrNull { it.ipv4 == ipv4 && !it.mac.equals(mac, ignoreCase = true) }?.let {
+            throw RouterException.Rejected("o IP $ipv4 já está reservado para outro aparelho")
+        }
+        val iid = current.firstOrNull { it.mac.equals(mac, ignoreCase = true) }?.id ?: "-1"
+        val host = name.filterNot { it == '/' || it == '|' || it == '<' || it == '>' }.trim().take(32).ifEmpty { "noname" }
+        setVar("modDhcpStatic", "$iid/$host/${mac.uppercase()}/$ipv4", sessionKeyOf(lanHtml))
+
+        val saved = AskeyParsers.reservations(getVar("dhcpStatic", referer = AskeyPaths.LAN))
+        if (saved.none { it.mac.equals(mac, ignoreCase = true) && it.ipv4 == ipv4 }) {
+            throw RouterException.Rejected("o roteador não gravou a reserva")
+        }
+    }
+
+    override suspend fun removeReservation(reservationId: String) {
+        setVar("delDhcpStatic", reservationId, sessionKeyOf(page(AskeyPaths.LAN)))
+    }
+
+    /**
+     * A "Rejeita Local" rule (LAN -> WAN, all protocols) whose source is the device's
+     * IP, named `Bloq-<ip>` so the app can find it again. Same fields the firewall
+     * page sends; the router's own default "accept LAN -> WAN" rule stays untouched.
+     */
+    override suspend fun blockInternet(ipv4: String, mac: String?) {
+        if (Ipv4.parse(ipv4) == null) throw RouterException.Rejected("IP inválido: $ipv4")
+        if (internetBlocks().any { it.ipv4 == ipv4 }) return
+        val html = page(AskeyPaths.FIREWALL_PAGE)
+        val (wan, lan) = AskeyParsers.firewallInterfaces(html)
+            ?: throw RouterException.UnexpectedResponse("interfaces do firewall não encontradas")
+        val rule = listOf(
+            "-1", "1", AskeyParsers.BLOCK_PREFIX + ipv4,
+            "0", // reject
+            wan, lan, // destination interface, source interface
+            "0", // IPv4
+            "*", ipv4, // destination IP, source IP
+            "176", // all protocols
+            "-1", "-1", "-1", "-1", // no port filter
+            "32", "32",
+        ).joinToString(",")
+        firewall("create", rule, sessionKeyOf(html))
+        if (internetBlocks().none { it.ipv4 == ipv4 }) throw RouterException.Rejected("o roteador não gravou a regra de bloqueio")
+    }
+
+    override suspend fun unblockInternet(blockId: String) {
+        firewall("delete", blockId, sessionKeyOf(page(AskeyPaths.FIREWALL_PAGE)))
+    }
+
+    private suspend fun internetBlocks(): List<InternetBlock> {
+        val html = page(AskeyPaths.FIREWALL_PAGE)
+        val key = sessionKeyOf(html)
+        return AskeyParsers.firewallRuleIds(html).mapNotNull { id ->
+            AskeyParsers.internetBlock(firewall("show", id, key))
+        }
+    }
+
+    private suspend fun firewall(action: String, inst: String, sessionKey: String): String = cgiPost(
+        AskeyPaths.FIREWALL,
+        referer = AskeyPaths.FIREWALL_PAGE,
+        query = listOf("action" to action, "inst" to inst, "sessionKey" to sessionKey),
+    )
+
+    private suspend fun getVar(name: String, referer: String): String =
+        cgiPost(AskeyPaths.GET_VAR, referer, listOf("varName" to name))
+
+    private suspend fun setVar(name: String, value: String, sessionKey: String): String = cgiPost(
+        AskeyPaths.SET_VAR,
+        referer = AskeyPaths.LAN,
+        query = listOf("sessionKey" to sessionKey, "varName" to name, "varValue" to value),
+    )
+
+    /** CGI calls: parameters in the query, an empty form body (else HTTP 400). */
+    private suspend fun cgiPost(path: String, referer: String, query: List<Pair<String, String>>): String = routerCall {
+        val response = http.submitForm(endpoint(path), Parameters.Empty) {
+            url { query.forEach { (k, v) -> parameters.append(k, v) } }
+            referer(referer)
+            header("X-Requested-With", "XMLHttpRequest")
+        }
+        if (response.isLoginPage()) throw RouterException.SessionExpired()
+        if (!response.status.isSuccess()) throw RouterException.Rejected("HTTP ${response.status.value} em $path")
+        response.bodyAsText()
+    }
 
     // --- Wi-Fi changes -------------------------------------------------------
 

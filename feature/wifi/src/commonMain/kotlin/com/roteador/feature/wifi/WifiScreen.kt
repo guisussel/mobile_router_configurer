@@ -1,6 +1,8 @@
 package com.roteador.feature.wifi
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -35,7 +37,9 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.roteador.core.designsystem.RoteadorTheme
 import com.roteador.core.designsystem.component.ErrorState
+import com.roteador.core.designsystem.component.OpenRouterPageButton
 import com.roteador.core.designsystem.component.InlineMessage
 import com.roteador.core.designsystem.component.LoadingState
 import com.roteador.core.designsystem.component.MetricRow
@@ -51,6 +55,15 @@ fun WifiScreen(modifier: Modifier = Modifier, viewModel: WifiViewModel = koinVie
     var confirming by remember { mutableStateOf<WifiDraft?>(null) }
 
     when {
+        state.unsupportedUrl != null -> Column(modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            SectionCard("Wi-Fi") {
+                Text(
+                    "Este roteador ainda não tem driver no app, então nome, senha, canal e WPS só podem ser trocados pela página dele.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                OpenRouterPageButton(state.unsupportedUrl!!)
+            }
+        }
         state.loading -> Box(modifier) { LoadingState() }
         state.drafts.isEmpty() -> Box(modifier) { ErrorState(state.error ?: "Sem dados de Wi-Fi.", onRetry = viewModel::load) }
         else -> Column(
@@ -167,6 +180,13 @@ private fun BandCard(
             enabled = !busy,
             onSelect = { v -> onEdit { it.copy(width = v) } },
         )
+        WpsCard(
+            enabled = draft.wpsEnabled,
+            hidden = draft.hidden,
+            busy = busy,
+            onChange = { v -> onEdit { it.copy(wpsEnabled = v) } },
+        )
+        Toggle("Ocultar o nome da rede", draft.hidden, enabled = !busy) { v -> onEdit { it.copy(hidden = v) } }
         Text("Potência: ${draft.txPowerPercent}%", style = MaterialTheme.typography.bodyMedium)
         Slider(
             value = draft.txPowerPercent.toFloat(),
@@ -175,15 +195,6 @@ private fun BandCard(
             steps = 8,
             enabled = !busy,
         )
-        Toggle("WPS (conectar pelo botão)", draft.wpsEnabled, enabled = !busy && !draft.hidden) { v -> onEdit { it.copy(wpsEnabled = v) } }
-        Toggle("Ocultar o nome da rede", draft.hidden, enabled = !busy) { v -> onEdit { it.copy(hidden = v) } }
-        if (draft.wpsEnabled) {
-            Text(
-                "Dica: WPS facilita conectar, mas é uma brecha conhecida. Desligar é mais seguro.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
 
         if (draft.change != null) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
@@ -193,6 +204,36 @@ private fun BandCard(
                 }
             }
         }
+    }
+}
+
+/** WPS gets its own highlighted block: it is a security choice, not a detail. */
+@Composable
+private fun WpsCard(enabled: Boolean, hidden: Boolean, busy: Boolean, onChange: (Boolean) -> Unit) {
+    val color = if (enabled) RoteadorTheme.status.warning else RoteadorTheme.status.good
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(color.copy(alpha = 0.10f), RoundedCornerShape(12.dp))
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("WPS", style = MaterialTheme.typography.titleSmall)
+                Text(if (enabled) "Ligado" else "Desligado", style = MaterialTheme.typography.labelMedium, color = color)
+            }
+            Switch(checked = enabled, onCheckedChange = onChange, enabled = !busy && !hidden)
+        }
+        Text(
+            when {
+                hidden -> "Indisponível com a rede oculta."
+                enabled -> "Permite conectar aparelhos apertando o botão WPS do roteador, sem senha. É uma brecha conhecida: desligar é mais seguro."
+                else -> "Aparelhos novos entram só com a senha. O roteador não aceita pareamento WPS pelo app, só pelo botão físico."
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

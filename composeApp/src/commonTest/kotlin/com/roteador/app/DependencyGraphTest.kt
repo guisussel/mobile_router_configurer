@@ -55,7 +55,7 @@ class DependencyGraphTest {
     fun everyViewModelCanBeCreated() {
         val koin = startKoin { modules(listOf(fakePlatform, dataModule) + driverModules + featureModules) }.koin
 
-        assertEquals(1, koin.getAll<RouterDriverFactory>().size)
+        assertEquals(2, koin.getAll<RouterDriverFactory>().size)
         assertNotNull(koin.get<LoginViewModel>())
         assertNotNull(koin.get<DashboardViewModel>())
         assertNotNull(koin.get<DevicesViewModel>())

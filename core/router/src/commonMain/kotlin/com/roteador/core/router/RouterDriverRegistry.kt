@@ -24,7 +24,7 @@ class RouterDriverRegistry(
         val baseUrl = normaliseBaseUrl(host)
         val http = httpClientFactory()
         try {
-            for (factory in factories) {
+            for (factory in factories.sortedByDescending { it.priority }) {
                 val info = routerCall { factory.identify(http, baseUrl) } ?: continue
                 log.i { "Router at $baseUrl handled by ${factory.id}: ${info.model} ${info.firmware}" }
                 return factory.create(http, baseUrl, info)

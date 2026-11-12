@@ -50,7 +50,7 @@ class DefaultRouterRepository(
         driver = opened
         session = request
         credentials.save(request.host, request.username, request.password.takeIf { request.remember })
-        _connection.value = ConnectionState.Connected(request.host, opened.info, request.username)
+        _connection.value = ConnectionState.Connected(request.host, opened.info, request.username, opened.capabilities)
         opened.info
     }
 
@@ -78,6 +78,16 @@ class DefaultRouterRepository(
     override suspend fun applyWifi(change: WifiBandChange) = call { applyWifi(change) }
 
     override suspend fun reboot() = call { reboot() }
+
+    override suspend fun deviceControls() = call { deviceControls() }
+
+    override suspend fun reserveIp(mac: String, name: String, ipv4: String) = call { reserveIp(mac, name, ipv4) }
+
+    override suspend fun removeReservation(reservationId: String) = call { removeReservation(reservationId) }
+
+    override suspend fun blockInternet(ipv4: String, mac: String?) = call { blockInternet(ipv4, mac) }
+
+    override suspend fun unblockInternet(blockId: String) = call { unblockInternet(blockId) }
 
     private suspend fun <T> call(block: suspend RouterDriver.() -> T): T = mutex.withLock {
         val current = driver ?: throw RouterException.SessionExpired()

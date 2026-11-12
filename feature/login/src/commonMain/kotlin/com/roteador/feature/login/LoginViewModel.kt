@@ -23,7 +23,8 @@ data class LoginUiState(
 ) {
     enum class Phase { Restoring, Editing, Connecting, Connected }
 
-    val canSubmit: Boolean get() = phase == Phase.Editing && host.isNotBlank() && username.isNotBlank() && password.isNotEmpty()
+    /** The password may stay empty: routers without a driver open in basic mode without one. */
+    val canSubmit: Boolean get() = phase == Phase.Editing && host.isNotBlank()
 }
 
 class LoginViewModel(private val repository: RouterRepository) : ViewModel() {

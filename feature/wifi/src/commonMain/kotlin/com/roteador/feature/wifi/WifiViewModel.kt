@@ -2,7 +2,9 @@ package com.roteador.feature.wifi
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.roteador.core.data.ConnectionState
 import com.roteador.core.data.RouterRepository
+import com.roteador.core.model.RouterCapability
 import com.roteador.core.data.runCatchingCancellable
 import com.roteador.core.data.userMessage
 import com.roteador.core.model.WifiBand
@@ -16,6 +18,8 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 data class WifiUiState(
+    /** Set when the connected router has no Wi-Fi driver: the screen offers its web page instead. */
+    val unsupportedUrl: String? = null,
     val loading: Boolean = true,
     val drafts: List<WifiDraft> = emptyList(),
     val applying: WifiBand? = null,
@@ -32,7 +36,12 @@ class WifiViewModel(
     val state: StateFlow<WifiUiState> = _state.asStateFlow()
 
     init {
-        load()
+        val connection = repository.connection.value as? ConnectionState.Connected
+        if (connection != null && RouterCapability.WifiSettings !in connection.capabilities) {
+            _state.value = WifiUiState(unsupportedUrl = connection.webUrl, loading = false)
+        } else {
+            load()
+        }
     }
 
     fun load() {

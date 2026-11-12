@@ -26,6 +26,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.roteador.core.designsystem.Format
 import com.roteador.core.designsystem.RoteadorTheme
 import com.roteador.core.designsystem.component.ChartSeries
+import com.roteador.core.designsystem.component.ChartTick
+import com.roteador.core.designsystem.component.OpenRouterPageButton
 import com.roteador.core.designsystem.component.InlineMessage
 import com.roteador.core.designsystem.component.LineChart
 import com.roteador.core.designsystem.component.LoadingState
@@ -52,6 +54,7 @@ fun DashboardScreen(modifier: Modifier = Modifier, viewModel: DashboardViewModel
     ) {
         HealthHeader(status, state.router?.let { "${it.manufacturer} ${it.model}" })
         state.statusError?.let { InlineMessage("Última leitura falhou: $it") }
+        state.connection?.takeIf { it.limited }?.let { GenericModeCard(it.webUrl) }
         TrafficCard(state.traffic)
         FiberCard(status.optical)
         InternetCard(status)
@@ -94,6 +97,7 @@ private fun TrafficCard(traffic: TrafficState) {
                 series = listOf(ChartSeries(traffic.download, down), ChartSeries(traffic.upload, up)),
                 capacity = TrafficState.HISTORY,
                 minimumTop = 1_000_000.0,
+                ticks = { top -> listOf(ChartTick(top, Format.bitrate(top)), ChartTick(top / 2, Format.bitrate(top / 2))) },
             )
             Text(
                 "Soma do Wi-Fi e dos cabos, último minuto.",
@@ -101,6 +105,18 @@ private fun TrafficCard(traffic: TrafficState) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+@Composable
+private fun GenericModeCard(url: String) {
+    SectionCard("Modo básico") {
+        Text(
+            "Ainda não há um driver para este roteador. O app mostra o que dá para ver de qualquer rede: " +
+                "internet no ar, aparelhos encontrados e o sinal do celular. Para trocar senha, canal ou reiniciar, use a página dele.",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        OpenRouterPageButton(url)
     }
 }
 
@@ -160,6 +176,13 @@ private fun InternetCard(status: RouterStatus) {
         internet.uptime?.let { MetricRow("Ligada há", Format.duration(it)) }
         internet.publicIpv4?.let { MetricRow("IP público", it) }
         if (internet.dnsServers.isNotEmpty()) MetricRow("DNS", internet.dnsServers.joinToString("\n"))
+        if (internet.uptime == null && internet.publicIpv4 == null) {
+            Text(
+                "Detalhes como IP público e tempo ligado aparecem se o roteador tiver UPnP ligado.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         if (status.lanPorts.isNotEmpty()) {
             MetricRow("Portas com cabo", status.lanPorts.filter { it.linkUp }.joinToString { "LAN ${it.number}" }.ifEmpty { "nenhuma" })
         }
@@ -168,6 +191,7 @@ private fun InternetCard(status: RouterStatus) {
 
 @Composable
 private fun WifiCard(status: RouterStatus) {
+    if (status.radios.isEmpty()) return
     SectionCard("Redes Wi-Fi") {
         status.radios.forEach { radio ->
             MetricRow(

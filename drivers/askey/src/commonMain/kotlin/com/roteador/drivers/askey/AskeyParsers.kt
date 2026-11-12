@@ -2,6 +2,9 @@ package com.roteador.drivers.askey
 
 import com.roteador.core.model.Addressing
 import com.roteador.core.model.ConnectedDevice
+import com.roteador.core.model.InternetBlock
+import com.roteador.core.model.IpReservation
+import com.roteador.core.model.Ipv4
 import com.roteador.core.model.DeviceLink
 import com.roteador.core.model.InterfaceCounters
 import com.roteador.core.model.InterfaceKind
@@ -184,6 +187,52 @@ internal object AskeyParsers {
         // the 5 GHz one follows it with a "-5GHz" suffix.
         credentialsEditable = band == WifiBand.Band2_4GHz,
     )
+
+    /** `dhcpStatic`: `iid/host/mac/ip|iid/host/mac/ip`. A host equal to the MAC means "no name". */
+    fun reservations(body: String): List<IpReservation> = body.trim().split('|').mapNotNull { entry ->
+        val parts = entry.split('/')
+        if (parts.size < 4) return@mapNotNull null
+        val (id, host, mac, ip) = parts
+        if (Ipv4.parse(ip) == null) return@mapNotNull null
+        IpReservation(
+            id = id,
+            name = host.takeUnless { it.isBlank() || it.equals(mac, ignoreCase = true) || it == "noname" },
+            mac = mac.lowercase(),
+            ipv4 = ip,
+        )
+    }
+
+    /** `dhcpStart` / `dhcpEnd` on the LAN settings page. */
+    fun dhcpRange(lanHtml: String): ClosedRange<Ipv4>? {
+        val script = PageScript(lanHtml)
+        val start = script["dhcpStart"]?.let(Ipv4::parse) ?: return null
+        val end = script["dhcpEnd"]?.let(Ipv4::parse) ?: return null
+        return start..end
+    }
+
+    /** `firewallRuleIndexList='5,7'`. */
+    fun firewallRuleIds(firewallHtml: String): List<String> =
+        PageScript(firewallHtml)["firewallRuleIndexList"].orEmpty().split(',', '|').map { it.trim() }.filter { it.isNotEmpty() }
+
+    /** `firewallInterfaceList='2,1'` = WAN object, LAN object. */
+    fun firewallInterfaces(firewallHtml: String): Pair<String, String>? {
+        val parts = PageScript(firewallHtml)["firewallInterfaceList"]?.split(',') ?: return null
+        return if (parts.size >= 2) parts[0] to parts[1] else null
+    }
+
+    /**
+     * Answer of `sv_firewall.cmd?action=show`: `inst=chn,ruleId,enabled,order,name,…`.
+     * Only rules this app created (name `Bloq-<ip>`) become [InternetBlock]s.
+     */
+    fun internetBlock(showBody: String): InternetBlock? {
+        val fields = showBody.substringAfter("inst=", "").split(',')
+        val ruleId = fields.getOrNull(1) ?: return null
+        val name = fields.getOrNull(4) ?: return null
+        val ip = name.removePrefix(BLOCK_PREFIX).takeIf { name.startsWith(BLOCK_PREFIX) && Ipv4.parse(it) != null } ?: return null
+        return InternetBlock(id = ruleId, ipv4 = ip, label = name)
+    }
+
+    const val BLOCK_PREFIX = "Bloq-"
 
     /** Body of `sv_getvar.cmd?varName=channel_list`: `36,40,44,…`. */
     fun channelList(body: String): List<Int> =

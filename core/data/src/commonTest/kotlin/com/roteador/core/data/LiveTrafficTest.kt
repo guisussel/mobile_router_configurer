@@ -27,6 +27,16 @@ class LiveTrafficTest {
     }
 
     @Test
+    fun wanCountersAreTheHouseTotal() {
+        val wan = InterfaceKind.Wan
+        val before = listOf(InterfaceCounters("wan", wan, 0, 0), InterfaceCounters("wl1", wifi5, 0, 0))
+        val after = listOf(InterfaceCounters("wan", wan, rxBytes = 250_000, txBytes = 0), InterfaceCounters("wl1", wifi5, 0, 250_000))
+        val traffic = ThroughputCalculator.between(before, after, 1.seconds)
+        // WAN rx = download; the radio's tx is the same bytes and must not double the total.
+        assertEquals(2_000_000.0, traffic.total.downloadBitsPerSecond)
+    }
+
+    @Test
     fun counterResetCountsAsZero() {
         val before = listOf(InterfaceCounters("wl1", wifi5, rxBytes = 5_000, txBytes = 5_000))
         val after = listOf(InterfaceCounters("wl1", wifi5, rxBytes = 10, txBytes = 10))

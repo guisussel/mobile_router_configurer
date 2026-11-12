@@ -8,6 +8,7 @@ import com.roteador.core.data.LiveTrafficMonitor
 import com.roteador.core.data.RouterRepository
 import com.roteador.core.data.pollEvery
 import com.roteador.core.data.userMessage
+import com.roteador.core.model.RouterCapability
 import com.roteador.core.model.RouterInfo
 import com.roteador.core.model.RouterStatus
 import com.roteador.core.model.WifiLink
@@ -15,12 +16,14 @@ import com.roteador.core.platform.WifiLinkProvider
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.scan
 import kotlinx.coroutines.flow.stateIn
 import kotlin.time.Duration.Companion.seconds
 
 data class DashboardUiState(
+    val connection: ConnectionState.Connected? = null,
     val router: RouterInfo? = null,
     val status: RouterStatus? = null,
     val statusError: String? = null,
@@ -64,13 +67,19 @@ class DashboardViewModel(
 ) : ViewModel() {
 
     private val status = pollEvery(5.seconds) { repository.status() }
-    private val traffic = trafficMonitor.stream(1.seconds).scan(TrafficState()) { acc, r -> acc.next(r) }
+    private val hasTraffic = (repository.connection.value as? ConnectionState.Connected)
+        ?.capabilities?.contains(RouterCapability.Traffic) ?: true
+    private val traffic = if (hasTraffic) {
+        trafficMonitor.stream(1.seconds).scan(TrafficState()) { acc, r -> acc.next(r) }
+    } else {
+        flowOf(TrafficState(error = "Este roteador não informa o tráfego. Se ele tiver UPnP, ligar essa opção libera o gráfico."))
+    }
     private val link = pollEvery(1.seconds) { wifiLinkProvider.current() }.map { it.getOrNull() }
-    private val router = repository.connection.map { (it as? ConnectionState.Connected)?.info }
+    private val router = repository.connection.map { it as? ConnectionState.Connected }
 
     val state: StateFlow<DashboardUiState> =
-        combine(router, status.scan(StatusAcc()) { acc, r -> acc.next(r) }, traffic, link) { info, s, t, l ->
-            DashboardUiState(router = info, status = s.value, statusError = s.error, traffic = t, wifiLink = l)
+        combine(router, status.scan(StatusAcc()) { acc, r -> acc.next(r) }, traffic, link) { c, s, t, l ->
+            DashboardUiState(connection = c, router = c?.info, status = s.value, statusError = s.error, traffic = t, wifiLink = l)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DashboardUiState())
 
     /** Keeps the last good status on screen when one poll fails. */

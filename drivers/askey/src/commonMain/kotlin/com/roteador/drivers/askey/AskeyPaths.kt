@@ -12,6 +12,10 @@ internal object AskeyPaths {
     const val REBOOT_POPUP = "popup-reboot.asp"
     const val REBOOT = "cgi-bin/cbReboot.xml"
     const val GET_VAR = "cgi-bin/sv_getvar.cmd"
+    const val SET_VAR = "cgi-bin/sv_setvar.cmd"
+    const val LAN = "settings-local-network.asp"
+    const val FIREWALL_PAGE = "settings-firewall.asp"
+    const val FIREWALL = "cgi-bin/sv_firewall.cmd"
 
     /** Name, password and security of the main network (the UI's "Básico" tab). */
     const val WIFI_BASIC = "cgi-bin/te_wifi.wl"

@@ -45,6 +45,7 @@ include(":core:testing")
 
 // Router drivers (one module per router family)
 include(":drivers:askey")
+include(":drivers:generic")
 
 // Features (one module per tab/screen; features never depend on each other)
 include(":feature:login")

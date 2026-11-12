@@ -23,6 +23,7 @@ class FakeDriver(
 ) : RouterDriver {
     override val info = RouterInfo("Fake", "R1", "1.0")
     override val defaultUsername = "admin"
+    override val capabilities = com.roteador.core.model.RouterCapability.entries.toSet()
     var loggedIn = false
     var logins = 0
     var expireNextCall = false

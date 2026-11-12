@@ -28,13 +28,18 @@ object ThroughputCalculator {
         val before = previous.associateBy { it.interfaceId }
         val rates = current.mapNotNull { now ->
             val old = before[now.interfaceId] ?: return@mapNotNull null
-            now.kind to Throughput(
-                // On a router port, tx = data going to the clients = their download.
-                downloadBitsPerSecond = delta(old.txBytes, now.txBytes) * 8 / seconds,
-                uploadBitsPerSecond = delta(old.rxBytes, now.rxBytes) * 8 / seconds,
-            )
+            val received = delta(old.rxBytes, now.rxBytes) * 8 / seconds
+            val sent = delta(old.txBytes, now.txBytes) * 8 / seconds
+            now.kind to when (now.kind) {
+                // On the internet side, what the router receives is the house's download.
+                InterfaceKind.Wan -> Throughput(downloadBitsPerSecond = received, uploadBitsPerSecond = sent)
+                // On a LAN port or radio, what it sends goes down to the clients.
+                else -> Throughput(downloadBitsPerSecond = sent, uploadBitsPerSecond = received)
+            }
         }.toMap()
-        return LiveTraffic(rates.values.fold(Throughput.Zero, Throughput::plus), rates)
+        // The WAN counter already is the house total; LAN ports would count the same bytes twice.
+        val total = rates[InterfaceKind.Wan] ?: rates.values.fold(Throughput.Zero, Throughput::plus)
+        return LiveTraffic(total, rates)
     }
 
     /** Counters reset on reboot and may wrap; a negative step is reported as zero. */

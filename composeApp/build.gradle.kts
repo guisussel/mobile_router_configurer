@@ -18,6 +18,7 @@ kotlin {
             implementation(project(":core:data"))
             implementation(project(":core:platform"))
             implementation(project(":drivers:askey"))
+            implementation(project(":drivers:generic"))
             implementation(project(":feature:login"))
             implementation(project(":feature:dashboard"))
             implementation(project(":feature:devices"))

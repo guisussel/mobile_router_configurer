@@ -13,6 +13,9 @@ data class InterfaceCounters(
 )
 
 sealed interface InterfaceKind {
+    /** The internet side. Here rx = what the house downloaded. */
+    data object Wan : InterfaceKind
+
     data class WifiRadio(val band: WifiBand) : InterfaceKind
     data class LanPort(val number: Int) : InterfaceKind
 }

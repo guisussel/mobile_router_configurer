@@ -25,6 +25,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.roteador.core.data.ConnectionState
 import com.roteador.core.designsystem.component.InlineMessage
+import com.roteador.core.designsystem.component.OpenRouterPageButton
+import com.roteador.core.model.RouterCapability
 import com.roteador.core.designsystem.component.MetricRow
 import com.roteador.core.designsystem.component.SectionCard
 import com.roteador.core.model.Quality
@@ -55,7 +57,13 @@ fun SettingsScreen(
             }
         }
 
-        SectionCard("Reiniciar") {
+        val connected = state.connection as? ConnectionState.Connected
+        if (connected != null && RouterCapability.Reboot !in connected.capabilities) {
+            SectionCard("Reiniciar") {
+                Text("Este roteador ainda não tem driver no app; reinicie pela página dele ou pelo botão do aparelho.")
+                OpenRouterPageButton(connected.webUrl)
+            }
+        } else SectionCard("Reiniciar") {
             Text(
                 "Ajuda quando o roteador está travado ou lento depois de muitos dias ligado. " +
                     "Não melhora sinal fraco nem o limite do plano. Internet, Wi-Fi e telefone caem por 2 a 3 minutos.",
@@ -73,6 +81,16 @@ fun SettingsScreen(
                     InlineMessage(phase.message, Quality.Critical)
                     OutlinedButton(onClick = { confirmReboot = true }) { Text("Tentar de novo") }
                 }
+            }
+        }
+
+        connected?.let {
+            SectionCard("Página do roteador") {
+                Text(
+                    "Para o que o app ainda não faz, a página de configuração do próprio roteador.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                OpenRouterPageButton(it.webUrl, text = "Abrir ${it.webUrl}")
             }
         }
 

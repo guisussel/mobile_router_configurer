@@ -6,6 +6,11 @@ import com.roteador.core.data.RouterRepository
 import com.roteador.core.data.SavedLogin
 import com.roteador.core.model.ChannelWidth
 import com.roteador.core.model.ConnectedDevice
+import com.roteador.core.model.DeviceControls
+import com.roteador.core.model.InternetBlock
+import com.roteador.core.model.IpReservation
+import com.roteador.core.model.Ipv4
+import com.roteador.core.model.RouterCapability
 import com.roteador.core.model.InterfaceCounters
 import com.roteador.core.model.InternetStatus
 import com.roteador.core.model.RouterException
@@ -30,6 +35,8 @@ class FakeRouterRepository : RouterRepository {
     var unreachableCalls = 0
     val applied = mutableListOf<WifiBandChange>()
     var rebootCount = 0
+    var capabilities: Set<RouterCapability> = RouterCapability.entries.toSet()
+    var controls = DeviceControls(emptyList(), emptyList(), Ipv4.parse("192.168.15.2")!!..Ipv4.parse("192.168.15.200")!!)
 
     override val connection = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)
 
@@ -39,7 +46,7 @@ class FakeRouterRepository : RouterRepository {
 
     override suspend fun connect(request: LoginRequest): RouterInfo {
         if (request.password != password) throw RouterException.InvalidCredentials()
-        connection.value = ConnectionState.Connected(request.host, info, request.username)
+        connection.value = ConnectionState.Connected(request.host, info, request.username, capabilities)
         if (request.remember) {
             saved = SavedLogin(request.host, request.username, hasPassword = true)
             savedPassword = request.password
@@ -82,6 +89,25 @@ class FakeRouterRepository : RouterRepository {
 
     override suspend fun reboot() {
         rebootCount++
+    }
+
+    override suspend fun deviceControls() = controls
+
+    override suspend fun reserveIp(mac: String, name: String, ipv4: String) {
+        val others = controls.reservations.filterNot { it.mac.equals(mac, ignoreCase = true) }
+        controls = controls.copy(reservations = others + IpReservation("r${others.size}", name, mac.lowercase(), ipv4))
+    }
+
+    override suspend fun removeReservation(reservationId: String) {
+        controls = controls.copy(reservations = controls.reservations.filterNot { it.id == reservationId })
+    }
+
+    override suspend fun blockInternet(ipv4: String, mac: String?) {
+        controls = controls.copy(blocks = controls.blocks + InternetBlock("b-$ipv4", ipv4, "Bloq-$ipv4"))
+    }
+
+    override suspend fun unblockInternet(blockId: String) {
+        controls = controls.copy(blocks = controls.blocks.filterNot { it.id == blockId })
     }
 
     companion object {
