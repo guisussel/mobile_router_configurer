@@ -55,7 +55,7 @@ fun SignalScreen(modifier: Modifier = Modifier, viewModel: SignalViewModel = koi
                         series = listOf(ChartSeries(state.history.map { it.toDouble() }, MaterialTheme.colorScheme.primary)),
                         capacity = SignalUiState.HISTORY,
                         minValue = -90.0,
-                        maxValue = -30.0,
+                        maxValue = -20.0,
                         height = 160.dp,
                     )
                     Text(
