@@ -12,3 +12,5 @@ captures/
 iosApp/*.xcodeproj/
 iosApp/build/
 xcuserdata/
+# Claude Code (worktrees, local settings)
+.claude/

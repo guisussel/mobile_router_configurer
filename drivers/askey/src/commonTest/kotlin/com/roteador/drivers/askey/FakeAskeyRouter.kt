@@ -33,7 +33,7 @@ internal class FakeAskeyRouter(
     private var sessionKey = 1111
 
     /** `iid/host/mac/ip` entries, like `sv_getvar.cmd?varName=dhcpStatic`. */
-    val reservations = mutableListOf("0/b8:27:eb:37:8d:30/b8:27:eb:37:8d:30/192.168.15.5")
+    val reservations = mutableListOf("0/02:00:00:00:00:05/02:00:00:00:00:05/192.168.15.5")
 
     /** ruleId -> body of `action=show`. */
     val firewallRules = linkedMapOf("5" to AskeyFixtures.DEFAULT_RULE)

@@ -19,7 +19,7 @@ class AskeyDeviceControlsTest {
 
     @Test
     fun parsesReservationsRangeAndOnlyOwnFirewallRules() {
-        val list = AskeyParsers.reservations("0/b8:27:eb:37:8d:30/b8:27:eb:37:8d:30/192.168.15.5|3/TV/AA:BB:CC:DD:EE:FF/192.168.15.50")
+        val list = AskeyParsers.reservations("0/02:00:00:00:00:05/02:00:00:00:00:05/192.168.15.5|3/TV/AA:BB:CC:DD:EE:FF/192.168.15.50")
         assertNull(list[0].name) // host equal to MAC = no name
         assertEquals("TV", list[1].name)
         assertEquals("aa:bb:cc:dd:ee:ff", list[1].mac)
@@ -31,25 +31,25 @@ class AskeyDeviceControlsTest {
     @Test
     fun reservesChangesAndRemovesAnIp() = runTest {
         val driver = driver()
-        driver.reserveIp("0a:b1:a6:a2:a8:58", "Tablet / sala", "192.168.15.60")
+        driver.reserveIp("02:00:00:00:00:06", "Tablet / sala", "192.168.15.60")
         var controls = driver.deviceControls()
-        val reservation = controls.reservationFor("0A:B1:A6:A2:A8:58")!!
+        val reservation = controls.reservationFor("02:00:00:00:00:06")!!
         assertEquals("192.168.15.60", reservation.ipv4)
         assertEquals("Tablet  sala", reservation.name) // '/' would break the router's format
 
-        driver.reserveIp("0a:b1:a6:a2:a8:58", "Tablet", "192.168.15.61") // same MAC = edit, not a second entry
+        driver.reserveIp("02:00:00:00:00:06", "Tablet", "192.168.15.61") // same MAC = edit, not a second entry
         controls = driver.deviceControls()
         assertEquals(2, controls.reservations.size)
 
-        driver.removeReservation(controls.reservationFor("0a:b1:a6:a2:a8:58")!!.id)
-        assertNull(driver.deviceControls().reservationFor("0a:b1:a6:a2:a8:58"))
+        driver.removeReservation(controls.reservationFor("02:00:00:00:00:06")!!.id)
+        assertNull(driver.deviceControls().reservationFor("02:00:00:00:00:06"))
     }
 
     @Test
     fun refusesIpOutsideRangeOrTaken() = runTest {
         val driver = driver()
-        assertFailsWith<RouterException.Rejected> { driver.reserveIp("0a:b1:a6:a2:a8:58", "x", "192.168.15.250") }
-        assertFailsWith<RouterException.Rejected> { driver.reserveIp("0a:b1:a6:a2:a8:58", "x", "192.168.15.5") }
+        assertFailsWith<RouterException.Rejected> { driver.reserveIp("02:00:00:00:00:06", "x", "192.168.15.250") }
+        assertFailsWith<RouterException.Rejected> { driver.reserveIp("02:00:00:00:00:06", "x", "192.168.15.5") }
     }
 
     @Test

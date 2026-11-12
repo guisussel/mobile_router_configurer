@@ -24,7 +24,7 @@ import kotlin.test.assertNull
 @OptIn(ExperimentalCoroutinesApi::class)
 class DevicesViewModelTest {
     private val repository = FakeRouterRepository()
-    private val tablet = ConnectedDevice("Tablet", "192.168.15.6", "0a:b1:a6:a2:a8:58", DeviceLink.Wifi(WifiBand.Band2_4GHz), null, Addressing.Dhcp)
+    private val tablet = ConnectedDevice("Tablet", "192.168.15.6", "02:00:00:00:00:06", DeviceLink.Wifi(WifiBand.Band2_4GHz), null, Addressing.Dhcp)
 
     @BeforeTest
     fun setUp() = Dispatchers.setMain(UnconfinedTestDispatcher())
