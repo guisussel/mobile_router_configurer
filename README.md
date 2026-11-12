@@ -166,3 +166,13 @@ cd iosApp && xcodegen && open iosApp.xcodeproj
 Projeto independente, sem relação com a Vivo, a Askey ou outros fabricantes. Use só em
 roteadores que você administra. Mudanças de Wi-Fi e firewall podem deixar aparelhos sem
 conexão até serem desfeitas.
+
+## Licença
+
+Licença dupla, à sua escolha:
+
+- [MIT](LICENSE-MIT)
+- [Apache License 2.0](LICENSE-APACHE)
+
+Contribuições enviadas a este repositório ficam sob as mesmas duas licenças, salvo aviso
+explícito em contrário.
