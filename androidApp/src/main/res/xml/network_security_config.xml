@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Home routers only serve plain HTTP, and their address varies (192.168.x.x,
+  10.x.x.x…), which this file cannot express as a range. The app only ever talks
+  to the router the user typed or the Wi-Fi gateway, so cleartext is allowed.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
